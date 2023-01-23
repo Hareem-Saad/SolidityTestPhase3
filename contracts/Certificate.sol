@@ -34,10 +34,9 @@ contract Certificate is EERC721, Ownable {
 contract CourseNFT is ERC1155, Ownable {
 
     enum studentStatus {NOT_ENROLLED, ENROLLED, COMPLETED}
-    enum courseStatus {NOT_ACTIVE, ACTIVE}
+    // enum courseStatus {NOT_ACTIVE, ACTIVE}
 
     studentStatus public studentDefault = studentStatus.NOT_ENROLLED; //default student status
-    courseStatus public courseDefault = courseStatus.NOT_ACTIVE; //default student status
 
     struct Course {
         uint256 courseId;
@@ -46,8 +45,8 @@ contract CourseNFT is ERC1155, Ownable {
         uint256 basePrice; //teacher's price
         uint256 shareTerm; //percentage of school's share 
         uint256 coursePrice; //course price after adding school's share and tax
+        bool isActive;
         mapping (address => studentStatus) students;
-        mapping (uint256 => courseStatus) courseStatus;
     }
 
     mapping (address => uint256[]) private teacherCourses;
@@ -82,7 +81,6 @@ contract CourseNFT is ERC1155, Ownable {
         c.basePrice = _price;
         c.shareTerm = _shareTerm;
         c.coursePrice = coursePrice;
-        c.courseStatus[tokenCounter] = courseDefault;
         //add to teachers mapping
         teacherCourses[_teacher].push(tokenCounter);
         //mint
@@ -118,12 +116,28 @@ contract CourseNFT is ERC1155, Ownable {
         return courses[id].coursePrice;
     }
 
+    function viewCourseStatusById(uint256 id) public view returns (bool) {
+        return courses[id].isActive;
+    }
+
     function viewCourseStudentStatusById(uint256 id, address student) public view returns (studentStatus) {
         return courses[id].students[student];
     }
 
-    function viewCourseStatusById(uint256 id) public view returns (courseStatus) {
-        return courses[id].courseStatus[id];
+    function graduateStudent(uint256 id, address student) public onlyOwner {
+        courses[id].students[student] = studentStatus.COMPLETED;
+    }
+
+    function EnrollStudent(uint256 id, address student) public onlyOwner {
+        courses[id].students[student] = studentStatus.ENROLLED;
+    }
+
+    function activateCourse(uint256 id) public onlyOwner {
+        courses[id].isActive = true;
+    }
+
+    function deactivateCourse(uint256 id) public onlyOwner {
+        courses[id].isActive = false;
     }
 
     // function calculatePrice(uint256 basePrice, uint256 shareTerm, uint16 tax) internal pure returns (uint) {

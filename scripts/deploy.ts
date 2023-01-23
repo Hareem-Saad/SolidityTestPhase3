@@ -49,6 +49,10 @@ async function main() {
   console.log("Teacher creates course");
 
   console.log("\n***********************************************************************\n");
+  await (await contract.connect(teacher).activateCourse(1)).wait()
+  console.log("Teacher activates course");
+  
+  console.log("\n***********************************************************************\n");
   const tx2 = await (await contract.connect(student).mint(100, {value: ethers.utils.parseEther("1")})).wait()
   // console.log(tx2.events);
   console.log(`Balance of student: ${await qtknContract.balanceOf(student.address)}`);
@@ -74,6 +78,7 @@ async function main() {
   console.log("\n***********************************************************************\n");
   const tx6 = await (await contract.connect(teacher).graduate(1, 1, student.address)).wait()
   console.log(tx6.events);
+  console.log(`Student Status: ${await contract.viewCourseStudentStatusById(1, student.address)}`);
   console.log("Student graduates");
 
   console.log("\n***********************************************************************\n");

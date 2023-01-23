@@ -5,6 +5,7 @@ pragma solidity >=0.7.0 <0.9.0;
 import "./Certificate.sol";
 import "./Token.sol";
 import "./Imports.sol";
+import "hardhat/console.sol";
 
 //here token contract is diff
 contract School is Ownable{ 
@@ -53,6 +54,11 @@ contract School is Ownable{
         ptknContract = new proxyTKN();
     }
 
+    modifier onlyTeacher(uint courseId) {
+        require(cnft.viewCourseTeacherById(courseId) == msg.sender, "not the assigned teacher");
+        _;
+    }
+
     //functions for owner
 
     function setTax(uint16 _tax) public onlyOwner {
@@ -69,13 +75,25 @@ contract School is Ownable{
 
     //functions for teacher
 
-    //create course
+    /**
+     * Create Course
+     * @param _price = teacher's price || must be > minimum price
+     * @param _shareTerm = teacher's share term || must be > minimum term
+     * @param data = concatenated string with information such as 
+     *      course id = from cnft tokencounter + 1
+     *      course name = from input (front-end)
+     *      course teacher = from input (front-end)
+     *      teacher's price = from input (front-end multipled by 10**18)
+     *      teacher's share term = from input (front-end multipled NOT by 10**18)
+     *      course price = from front-end calculated by calculatePrice from contract
+     *      school fee = from front-end calculated by course price - teacher's share term
+     */
     function createCourse(string memory _courseName, address _teacher, uint256 _price, uint8 _shareTerm, string memory data) public {
         require(_price >= minimumCoursePrice, "price is lower than the minimum course price");
         require(_shareTerm >= baseTerm, "share term is lower than the base term");
         require(msg.sender != address(0), "user not viable");
         require(keccak256(abi.encode(_courseName)) != keccak256(abi.encode("")) , "name cannot be null");
-        // require(keccak256(abi.encode(_courseName)) == keccak256(abi.encode(" ")) , "name cannot be null");
+        // require(keccak256(abi.encode(data)) == keccak256(abi.encode("")) , "name cannot be null");
         // require(date != "", "data cannot be null");
         uint basePrice = _price*10**18;
         uint price = calculatePrice(basePrice, _shareTerm);
@@ -87,12 +105,13 @@ contract School is Ownable{
 
     //once a student completes the course the teacher van graduate him
     //once the stutus is complete an nft is transfered to him
-    function graduate(uint tokenid, uint _courseIndex, address _student) public {
-        require(cnft.viewCourseTeacherById(_courseIndex) == msg.sender, "not the assigned teacher");
+    function graduate(uint tokenid, uint _courseIndex, address _student) public onlyTeacher(_courseIndex) {
+        // require(cnft.viewCourseTeacherById(_courseIndex) == msg.sender, "not the assigned teacher");
         require(ptknContract.ifEnrolled(tokenid, _courseIndex) == _student, "student not enrolled");
         require(cnft.viewCourseTeacherById(_courseIndex) != address(0), "course doesn't exist");
-        emit studentGraduated(_courseIndex, msg.sender, _student);
+        cnft.graduateStudent(_courseIndex, _student);
         certificateContract.mint(_student);
+        emit studentGraduated(_courseIndex, msg.sender, _student);
     }
 
     //private functions
@@ -126,10 +145,12 @@ contract School is Ownable{
         require(msg.sender != address(0), "user not viable");
         require(qtknContract.allowance(msg.sender, address(this)) >= coursePrice , "Check the token allowance");
         require(qtknContract.balanceOf(msg.sender) >= coursePrice);
+        require(viewCourseStatusById(_courseId), "course not active");
         string memory _name = cnft.viewCourseNameById(_courseId);
         address assignedTeacher = cnft.viewCourseTeacherById(_courseId);
         qtknContract.transferFrom(msg.sender, address(this), coursePrice);
         divideFee(assignedTeacher, basePrice, coursePrice);
+        cnft.EnrollStudent(_courseId, msg.sender);
         ptknContract.mint(msg.sender, _courseId);
         emit newStudentAdded(_courseId, ptknContract.totalSupply(),_name, assignedTeacher, coursePrice, msg.sender);
     }
@@ -171,7 +192,17 @@ contract School is Ownable{
         return cnft.viewCourseStudentStatusById(id, student);
     }
 
-    function viewCourseStatusById(uint256 id) public view returns (CourseNFT.courseStatus) {
+    function viewCourseStatusById(uint256 id) public view returns (bool) {
         return cnft.viewCourseStatusById(id);
+    }
+
+    function activateCourse(uint256 courseId) public onlyTeacher(courseId) {
+        require ((courseId != 0) && (courseId <= cnft.tokenCounter()), "course doesnot exist");
+        cnft.activateCourse(courseId);
+    }
+
+    function deactivateCourse(uint256 courseId) public onlyTeacher(courseId) {
+        require ((courseId != 0) && (courseId <= cnft.tokenCounter()), "course doesnot exist");
+        cnft.deactivateCourse(courseId);
     }
 }
