@@ -39,7 +39,7 @@ contract CourseNFT is ERC1155, Ownable {
     studentStatus public studentDefault = studentStatus.NOT_ENROLLED; //default student status
 
     struct Course {
-        uint256 courseId;
+        uint256 courseId; //also nft id
         string name;
         address assignedTeacher;
         uint256 basePrice; //teacher's price
